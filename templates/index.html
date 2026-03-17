@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>오성중학교 장학금 관리 시스템</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #0a0f1e;
+  --bg-card: #111827;
+  --bg-card-hover: #1a2236;
+  --bg-input: #1e293b;
+  --border: #1e3a5f;
+  --border-light: #2a4a6f;
+  --text-primary: #e8edf5;
+  --text-secondary: #8899b4;
+  --text-muted: #5a6b84;
+  --accent-gold: #d4a843;
+  --accent-gold-light: #e8c76a;
+  --accent-gold-dim: rgba(212,168,67,0.15);
+  --accent-blue: #3b82f6;
+  --accent-emerald: #10b981;
+  --accent-rose: #f43f5e;
+  --accent-purple: #8b5cf6;
+  --accent-amber: #f59e0b;
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+  --transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg-deep);color:var(--text-primary);min-height:100vh;}
+.app{display:flex;min-height:100vh;}
+.sidebar{width:260px;min-height:100vh;background:linear-gradient(180deg,#0d1526,#0a0f1e);border-right:1px solid var(--border);position:fixed;top:0;left:0;z-index:100;display:flex;flex-direction:column;}
+.sidebar-logo{padding:28px 24px;border-bottom:1px solid var(--border);}
+.sidebar-logo h1{font-family:'Playfair Display',serif;font-size:14px;color:var(--accent-gold);letter-spacing:3px;text-transform:uppercase;margin-bottom:4px;}
+.sidebar-logo p{font-size:18px;font-weight:700;letter-spacing:1px;}
+.sidebar-logo .school{font-size:11px;color:var(--text-muted);margin-top:6px;}
+.sidebar-nav{flex:1;padding:16px 12px;display:flex;flex-direction:column;gap:4px;}
+.nav-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:var(--radius-sm);cursor:pointer;transition:var(--transition);color:var(--text-secondary);font-size:14px;border:1px solid transparent;}
+.nav-item:hover{background:var(--bg-card);color:var(--text-primary);}
+.nav-item.active{background:var(--accent-gold-dim);color:var(--accent-gold);font-weight:600;border-color:rgba(212,168,67,0.25);}
+.nav-item svg{width:20px;height:20px;flex-shrink:0;}
+.sidebar-footer{padding:16px 20px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted);text-align:center;}
+.main{flex:1;margin-left:260px;padding:32px;min-height:100vh;}
+.page{display:none;}.page.active{display:block;}
+.page-header{margin-bottom:28px;}
+.page-header h2{font-size:26px;font-weight:700;margin-bottom:6px;}
+.page-header p{font-size:14px;color:var(--text-secondary);}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px;transition:var(--transition);}
+.card:hover{border-color:var(--border-light);}
+.card-title{font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.card-title .dot{width:8px;height:8px;border-radius:50%;background:var(--accent-gold);}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:24px;}
+.stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:22px;position:relative;overflow:hidden;transition:var(--transition);}
+.stat-card:hover{transform:translateY(-2px);border-color:var(--border-light);box-shadow:var(--shadow-sm);}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.stat-card.gold::before{background:linear-gradient(90deg,var(--accent-gold),var(--accent-gold-light));}
+.stat-card.blue::before{background:linear-gradient(90deg,#3b82f6,#60a5fa);}
+.stat-card.emerald::before{background:linear-gradient(90deg,#10b981,#34d399);}
+.stat-card.rose::before{background:linear-gradient(90deg,#f43f5e,#fb7185);}
+.stat-card.purple::before{background:linear-gradient(90deg,#8b5cf6,#a78bfa);}
+.stat-card.amber::before{background:linear-gradient(90deg,#f59e0b,#fbbf24);}
+.stat-label{font-size:12px;color:var(--text-muted);margin-bottom:10px;font-weight:500;letter-spacing:0.5px;}
+.stat-value{font-size:28px;font-weight:800;line-height:1;}
+.stat-value span{font-size:14px;font-weight:400;}
+.stat-sub{font-size:12px;color:var(--text-secondary);margin-top:8px;}
+.table-wrap{overflow-x:auto;border-radius:var(--radius-sm);}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead th{background:var(--bg-input);color:var(--text-secondary);font-weight:600;font-size:12px;padding:12px 14px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;}
+tbody td{padding:11px 14px;border-bottom:1px solid rgba(30,58,95,0.4);}
+tbody tr:hover{background:var(--bg-card-hover);}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-xs);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:var(--transition);font-family:inherit;}
+.btn-gold{background:linear-gradient(135deg,var(--accent-gold),#c49a30);color:#0a0f1e;font-weight:600;}
+.btn-gold:hover{background:linear-gradient(135deg,var(--accent-gold-light),var(--accent-gold));transform:translateY(-1px);}
+.btn-outline{background:transparent;border-color:var(--border-light);color:var(--text-secondary);}
+.btn-outline:hover{border-color:var(--accent-gold);color:var(--accent-gold);}
+.btn-danger{background:rgba(244,63,94,0.1);border-color:rgba(244,63,94,0.3);color:var(--accent-rose);}
+.btn-danger:hover{background:rgba(244,63,94,0.2);}
+.btn-sm{padding:5px 10px;font-size:12px;}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap;}
+.form-group{margin-bottom:16px;}
+.form-label{display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;}
+.form-input,.form-select,.form-textarea{width:100%;padding:10px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--text-primary);font-size:14px;font-family:inherit;transition:var(--transition);outline:none;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent-gold);box-shadow:0 0 0 3px var(--accent-gold-dim);}
+.form-select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238899b4' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+.form-textarea{min-height:400px;resize:vertical;line-height:2;font-size:13px;}
+.form-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+.badge-gold{background:var(--accent-gold-dim);color:var(--accent-gold);}
+.badge-blue{background:rgba(59,130,246,0.15);color:#60a5fa;}
+.badge-emerald{background:rgba(16,185,129,0.15);color:#34d399;}
+.badge-rose{background:rgba(244,63,94,0.15);color:#fb7185;}
+.badge-purple{background:rgba(139,92,246,0.15);color:#a78bfa;}
+.badge-amber{background:rgba(245,158,11,0.15);color:#fbbf24;}
+.badge-gray{background:rgba(100,116,139,0.15);color:#94a3b8;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:1000;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:28px;width:90%;max-width:560px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:slideUp .3s;}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+.modal-header h3{font-size:18px;font-weight:700;}
+.modal-close{background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;font-size:20px;transition:var(--transition);}
+.modal-close:hover{color:var(--text-primary);}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
+.filter-select{padding:7px 30px 7px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--text-primary);font-size:13px;font-family:inherit;cursor:pointer;outline:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238899b4' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;}
+.filter-select:focus{border-color:var(--accent-gold);}
+.search-bar{position:relative;flex:1;}
+.search-bar input{width:100%;padding:10px 14px 10px 40px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--text-primary);font-size:14px;font-family:inherit;outline:none;transition:var(--transition);}
+.search-bar input:focus{border-color:var(--accent-gold);box-shadow:0 0 0 3px var(--accent-gold-dim);}
+.search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);}
+.tabs{display:flex;gap:2px;margin-bottom:20px;background:var(--bg-input);border-radius:var(--radius-sm);padding:4px;}
+.tab{padding:8px 18px;border-radius:var(--radius-xs);font-size:13px;font-weight:500;cursor:pointer;transition:var(--transition);color:var(--text-secondary);border:none;background:transparent;font-family:inherit;}
+.tab:hover{color:var(--text-primary);}
+.tab.active{background:var(--bg-card);color:var(--accent-gold);font-weight:600;box-shadow:var(--shadow-sm);}
+.bar-chart{display:flex;align-items:flex-end;gap:12px;height:200px;padding-top:20px;}
+.bar-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end;}
+.bar{width:100%;max-width:60px;border-radius:6px 6px 0 0;transition:height .6s cubic-bezier(.4,0,.2,1);}
+.bar-label{font-size:11px;color:var(--text-muted);text-align:center;}
+.bar-value{font-size:11px;font-weight:700;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.progress-bar{height:8px;background:var(--bg-input);border-radius:4px;overflow:hidden;margin-top:4px;}
+.progress-fill{height:100%;border-radius:4px;transition:width .6s ease;}
+.empty{text-align:center;padding:48px 20px;color:var(--text-muted);}
+.reg-document{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.reg-header-bar{background:linear-gradient(135deg,rgba(212,168,67,0.12),rgba(212,168,67,0.04));border-bottom:1px solid var(--border);padding:24px 32px;text-align:center;}
+.reg-header-bar h3{font-size:20px;font-weight:800;letter-spacing:2px;margin-bottom:4px;}
+.reg-header-bar .reg-school{font-size:13px;color:var(--accent-gold);font-weight:600;}
+.reg-body{padding:32px;line-height:1.9;}
+.reg-chapter{margin-bottom:28px;}
+.reg-chapter-title{font-size:15px;font-weight:700;color:var(--accent-gold);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid rgba(212,168,67,0.2);}
+.reg-article{margin-bottom:12px;padding-left:4px;}
+.reg-article-title{font-size:14px;font-weight:600;margin-bottom:4px;}
+.reg-article-body{font-size:13px;color:var(--text-secondary);padding-left:12px;line-height:2;}
+.reg-article-body .sub{display:block;padding-left:14px;position:relative;}
+.reg-article-body .sub::before{content:'';position:absolute;left:0;top:11px;width:5px;height:5px;border-radius:50%;background:var(--border-light);}
+.reg-footer{text-align:center;padding:20px 32px;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted);}
+.reg-status{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);}
+.dot-live{width:7px;height:7px;border-radius:50%;background:var(--accent-emerald);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@media print{.sidebar,.btn,.btn-group,.search-bar,.filters,.no-print{display:none!important;}.main{margin-left:0!important;padding:20px!important;}.card{break-inside:avoid;}*{color:#000!important;background:#fff!important;border-color:#ddd!important;}}
+@media(max-width:768px){.sidebar{display:none;}.main{margin-left:0;padding:16px;}.stats-grid{grid-template-columns:repeat(2,1fr);}.grid-2{grid-template-columns:1fr;}.form-row{grid-template-columns:1fr;}}
+::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:var(--bg-deep);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar no-print">
+    <div class="sidebar-logo">
+      <h1>Scholarship</h1>
+      <p>장학금 관리 시스템</p>
+      <div class="school">오성중학교 · Oseong Middle School</div>
+    </div>
+    <nav class="sidebar-nav" id="nav"></nav>
+    <div class="sidebar-footer">© 2026 오성중학교 장학금 관리 시스템<br>v1.0</div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main">
+    <!-- ═══ Dashboard ═══ -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header"><h2>대시보드</h2><p>오성중학교 장학금 관리 현황 종합</p></div>
+      <div class="stats-grid" id="dash-stats"></div>
+      <div class="grid-2">
+        <div class="card"><div class="card-title"><span class="dot"></span>학년별 지급 현황</div><div class="table-wrap" id="dash-grade-table"></div></div>
+        <div class="card"><div class="card-title"><span class="dot"></span>최근 지급 내역</div><div class="table-wrap" id="dash-recent"></div></div>
+      </div>
+    </div>
+
+    <!-- ═══ Managers ═══ -->
+    <div class="page" id="page-manager">
+      <div class="page-header"><h2>담당자 관리</h2><p>장학금 업무 담당자 정보를 관리합니다</p></div>
+      <div class="btn-group no-print" style="margin-bottom:16px">
+        <button class="btn btn-gold" onclick="openManagerModal()">＋ 담당자 추가</button>
+      </div>
+      <div class="card"><div class="table-wrap" id="manager-table"></div></div>
+    </div>
+
+    <!-- ═══ Students ═══ -->
+    <div class="page" id="page-students">
+      <div class="page-header"><h2>학생 관리</h2><p>전교생 명단을 관리하고 CSV 파일로 일괄 등록할 수 있습니다</p></div>
+      <div class="btn-group no-print" style="margin-bottom:16px">
+        <button class="btn btn-gold" onclick="openStudentModal()">＋ 학생 추가</button>
+        <button class="btn btn-outline" onclick="document.getElementById('csv-file').click()">📤 CSV 업로드</button>
+        <button class="btn btn-outline" onclick="downloadTemplate()">📥 템플릿 다운로드</button>
+        <button class="btn btn-danger" onclick="deleteAllStudents()">🗑 전체 삭제</button>
+        <input type="file" id="csv-file" accept=".csv" onchange="handleCSV(event)" style="display:none">
+      </div>
+      <div class="filters no-print">
+        <select class="filter-select" id="stu-grade" onchange="loadStudents()"><option value="all">전체 학년</option><option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option></select>
+        <select class="filter-select" id="stu-class" onchange="loadStudents()"><option value="all">전체 반</option><option value="1">1반</option><option value="2">2반</option></select>
+        <div class="search-bar"><span class="search-icon">🔍</span><input id="stu-search" oninput="loadStudents()" placeholder="이름 또는 번호로 검색..."></div>
+      </div>
+      <div class="card"><div id="stu-count" style="font-size:13px;color:var(--text-secondary);margin-bottom:12px"></div><div class="table-wrap" id="student-table"></div></div>
+    </div>
+
+    <!-- ═══ Scholarships ═══ -->
+    <div class="page" id="page-scholarships">
+      <div class="page-header"><h2>장학금 관리</h2><p>장학금 종류와 지원 주체를 관리합니다</p></div>
+      <div class="btn-group no-print" style="margin-bottom:16px">
+        <button class="btn btn-gold" onclick="openScholarshipModal()">＋ 장학금 추가</button>
+      </div>
+      <div class="card"><div class="table-wrap" id="scholarship-table"></div></div>
+    </div>
+
+    <!-- ═══ Payments ═══ -->
+    <div class="page" id="page-payments">
+      <div class="page-header"><h2>지급 관리</h2><p>장학금 지급 현황을 기록하고 관리합니다</p></div>
+      <div class="btn-group no-print" style="margin-bottom:16px">
+        <button class="btn btn-gold" onclick="openPaymentModal()">＋ 지급 등록</button>
+        <button class="btn btn-outline" onclick="location.href='/api/payments/csv'">📥 CSV 내보내기</button>
+        <button class="btn btn-outline" onclick="window.print()">🖨 인쇄</button>
+      </div>
+      <div class="filters no-print">
+        <select class="filter-select" id="pay-year" onchange="loadPayments()"><option value="all">전체 연도</option><option value="2026">2026년</option><option value="2027">2027년</option><option value="2028">2028년</option></select>
+        <select class="filter-select" id="pay-grade" onchange="loadPayments()"><option value="all">전체 학년</option><option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option></select>
+        <select class="filter-select" id="pay-status" onchange="loadPayments()"><option value="all">전체 상태</option><option value="지급예정">지급예정</option><option value="지급완료">지급완료</option><option value="보류">보류</option><option value="취소">취소</option></select>
+        <div class="search-bar"><span class="search-icon">🔍</span><input id="pay-search" oninput="loadPayments()" placeholder="학생명 또는 장학금명 검색..."></div>
+      </div>
+      <div class="card"><div id="pay-summary" style="font-size:13px;color:var(--text-secondary);margin-bottom:12px"></div><div class="table-wrap" id="payment-table"></div></div>
+    </div>
+
+    <!-- ═══ Statistics ═══ -->
+    <div class="page" id="page-stats">
+      <div class="page-header"><h2>통계 분석</h2><p>장학금 지급 데이터를 다양한 관점에서 분석합니다</p></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px" class="no-print">
+        <div class="tabs" id="stats-tabs"></div>
+        <div class="filters" style="margin-bottom:0">
+          <select class="filter-select" id="stats-year" onchange="loadStats()"><option value="all">전체 연도</option><option value="2026">2026년</option><option value="2027">2027년</option><option value="2028">2028년</option></select>
+          <button class="btn btn-outline" onclick="window.print()">🖨 인쇄</button>
+        </div>
+      </div>
+      <div id="stats-content"></div>
+    </div>
+
+    <!-- ═══ Regulation ═══ -->
+    <div class="page" id="page-regulation">
+      <div class="page-header"><h2>장학금 지급 규정</h2><p>장학금 운영에 관한 규정을 열람하고 관리합니다</p></div>
+      <div id="reg-toolbar" class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div class="reg-status"><span class="dot-live"></span><span id="reg-dates"></span></div>
+        <div class="btn-group" id="reg-buttons"></div>
+      </div>
+      <div id="reg-content"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ═══ Modals ═══ -->
+<div class="modal-overlay" id="modal-manager">
+  <div class="modal">
+    <div class="modal-header"><h3 id="manager-modal-title">담당자 추가</h3><button class="modal-close" onclick="closeModal('modal-manager')">✕</button></div>
+    <input type="hidden" id="mgr-id">
+    <div class="form-group"><label class="form-label">이름 *</label><input class="form-input" id="mgr-name" placeholder="홍길동"></div>
+    <div class="form-group"><label class="form-label">역할 *</label><input class="form-input" id="mgr-role" placeholder="장학금 담당"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">부서</label><input class="form-input" id="mgr-dept" placeholder="교무부"></div>
+      <div class="form-group"><label class="form-label">연락처</label><input class="form-input" id="mgr-contact" placeholder="010-0000-0000"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('modal-manager')">취소</button><button class="btn btn-gold" onclick="saveManager()">저장</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-student">
+  <div class="modal">
+    <div class="modal-header"><h3 id="student-modal-title">학생 추가</h3><button class="modal-close" onclick="closeModal('modal-student')">✕</button></div>
+    <input type="hidden" id="stu-id">
+    <div class="form-group"><label class="form-label">이름 *</label><input class="form-input" id="stu-name" placeholder="학생 이름"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">학년</label><select class="form-select" id="stu-grade-f"><option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option></select></div>
+      <div class="form-group"><label class="form-label">반</label><select class="form-select" id="stu-class-f"><option value="1">1반</option><option value="2">2반</option></select></div>
+      <div class="form-group"><label class="form-label">번호</label><input class="form-input" type="number" id="stu-num" placeholder="출석번호"></div>
+    </div>
+    <div class="form-group"><label class="form-label">성별</label><select class="form-select" id="stu-gender"><option value="남">남</option><option value="여">여</option></select></div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('modal-student')">취소</button><button class="btn btn-gold" onclick="saveStudent()">저장</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-scholarship">
+  <div class="modal">
+    <div class="modal-header"><h3 id="scholarship-modal-title">장학금 추가</h3><button class="modal-close" onclick="closeModal('modal-scholarship')">✕</button></div>
+    <input type="hidden" id="sc-id">
+    <div class="form-group"><label class="form-label">장학금명 *</label><input class="form-input" id="sc-name" placeholder="장학금 이름"></div>
+    <div class="form-group"><label class="form-label">지원 주체 *</label><input class="form-input" id="sc-provider" placeholder="재단명, 기관명, 개인 등"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">카테고리</label><select class="form-select" id="sc-category"><option>성적우수</option><option>생활곤란</option><option>특기적성</option><option>봉사활동</option><option>리더십</option><option>기타</option></select></div>
+      <div class="form-group"><label class="form-label">기본 금액 (원)</label><input class="form-input" type="number" id="sc-amount" placeholder="500000"></div>
+    </div>
+    <div class="form-group"><label class="form-label">비고</label><input class="form-input" id="sc-desc" placeholder="추가 설명"></div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('modal-scholarship')">취소</button><button class="btn btn-gold" onclick="saveScholarship()">저장</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-payment">
+  <div class="modal">
+    <div class="modal-header"><h3 id="payment-modal-title">지급 등록</h3><button class="modal-close" onclick="closeModal('modal-payment')">✕</button></div>
+    <input type="hidden" id="pay-id">
+    <div class="form-group"><label class="form-label">학생 *</label><select class="form-select" id="pay-student"></select></div>
+    <div class="form-group"><label class="form-label">장학금 *</label><select class="form-select" id="pay-scholarship" onchange="onScholarshipSelect()"></select></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">금액 (원)</label><input class="form-input" type="number" id="pay-amount" placeholder="자동 입력"></div>
+      <div class="form-group"><label class="form-label">지급 날짜</label><input class="form-input" type="date" id="pay-date"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">적용 연도</label><select class="form-select" id="pay-year-f"><option value="2026">2026년</option><option value="2027">2027년</option><option value="2028">2028년</option></select></div>
+      <div class="form-group"><label class="form-label">상태</label><select class="form-select" id="pay-status-f"><option>지급예정</option><option>지급완료</option><option>보류</option><option>취소</option></select></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('modal-payment')">취소</button><button class="btn btn-gold" onclick="savePayment()">저장</button></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+//  State & Helpers
+// ═══════════════════════════════════════
+let allStudents=[], allScholarships=[], allPayments=[];
+let currentStatsTab='category';
+const fmt=n=>Number(n).toLocaleString('ko-KR');
+const today=()=>new Date().toISOString().split('T')[0];
+const catBadge=c=>({성적우수:'badge-gold',생활곤란:'badge-blue',특기적성:'badge-emerald',봉사활동:'badge-purple',리더십:'badge-amber',기타:'badge-gray'}[c]||'badge-gray');
+const statusBadge=s=>({지급완료:'badge-emerald',지급예정:'badge-blue',보류:'badge-amber',취소:'badge-rose'}[s]||'badge-gray');
+
+async function api(url,opts={}){
+  const r=await fetch(url,{headers:{'Content-Type':'application/json'},...opts});
+  return r.json();
+}
+
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function openModal(id){document.getElementById(id).classList.add('open');}
+
+// ═══════════════════════════════════════
+//  Navigation
+// ═══════════════════════════════════════
+const pages=[
+  {key:'dashboard',label:'대시보드',icon:'◻'},
+  {key:'manager',label:'담당자 관리',icon:'👤'},
+  {key:'students',label:'학생 관리',icon:'👥'},
+  {key:'scholarships',label:'장학금 관리',icon:'🎓'},
+  {key:'payments',label:'지급 관리',icon:'💳'},
+  {key:'stats',label:'통계 분석',icon:'📊'},
+  {key:'regulation',label:'지급 규정',icon:'📋'},
+];
+
+function navigate(key){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+key).classList.add('active');
+  document.querySelector(`[data-nav="${key}"]`).classList.add('active');
+  if(key==='dashboard')loadDashboard();
+  else if(key==='manager')loadManagers();
+  else if(key==='students')loadStudents();
+  else if(key==='scholarships')loadScholarships();
+  else if(key==='payments')loadPayments();
+  else if(key==='stats')loadStats();
+  else if(key==='regulation')loadRegulation();
+}
+
+function initNav(){
+  const nav=document.getElementById('nav');
+  nav.innerHTML=pages.map(p=>`<div class="nav-item${p.key==='dashboard'?' active':''}" data-nav="${p.key}" onclick="navigate('${p.key}')"><span style="font-size:18px">${p.icon}</span>${p.label}</div>`).join('');
+}
+
+// ═══════════════════════════════════════
+//  Dashboard
+// ═══════════════════════════════════════
+async function loadDashboard(){
+  const d=await api('/api/dashboard');
+  document.getElementById('dash-stats').innerHTML=`
+    <div class="stat-card gold"><div class="stat-label">전체 학생 수</div><div class="stat-value">${d.total_students}<span>명</span></div><div class="stat-sub">등록된 학생</div></div>
+    <div class="stat-card blue"><div class="stat-label">장학금 종류</div><div class="stat-value">${d.total_scholarships}<span>건</span></div><div class="stat-sub">등록된 장학금</div></div>
+    <div class="stat-card emerald"><div class="stat-label">총 지급액</div><div class="stat-value" style="font-size:22px">${fmt(d.total_amount)}<span>원</span></div><div class="stat-sub">${d.total_payments}건 지급완료</div></div>
+    <div class="stat-card purple"><div class="stat-label">수혜 학생</div><div class="stat-value">${d.unique_recipients}<span>명</span></div><div class="stat-sub">중복 제외</div></div>
+    <div class="stat-card amber"><div class="stat-label">지급 예정</div><div class="stat-value">${d.pending}<span>건</span></div><div class="stat-sub">대기 중</div></div>`;
+  
+  document.getElementById('dash-grade-table').innerHTML=`<table><thead><tr><th>학년</th><th>학생 수</th><th>지급 건수</th><th>지급 총액</th></tr></thead><tbody>${d.grade_stats.map(g=>`<tr><td><span class="badge badge-gold">${g.grade}학년</span></td><td>${g.students}명</td><td>${g.count}건</td><td style="font-weight:600">${fmt(g.amount)}원</td></tr>`).join('')}</tbody></table>`;
+  
+  const rp=d.recent_payments;
+  document.getElementById('dash-recent').innerHTML=rp.length?`<table><thead><tr><th>날짜</th><th>학생</th><th>장학금</th><th>금액</th><th>상태</th></tr></thead><tbody>${rp.map(p=>`<tr><td>${p.pay_date}</td><td>${p.student_name} (${p.student_grade}-${p.student_class})</td><td>${p.scholarship_name}</td><td style="font-weight:600">${fmt(p.amount)}원</td><td><span class="badge ${statusBadge(p.status)}">${p.status}</span></td></tr>`).join('')}</tbody></table>`:'<div class="empty"><p>지급 데이터가 없습니다</p></div>';
+}
+
+// ═══════════════════════════════════════
+//  Managers
+// ═══════════════════════════════════════
+async function loadManagers(){
+  const data=await api('/api/managers');
+  document.getElementById('manager-table').innerHTML=`<table><thead><tr><th>이름</th><th>역할</th><th>부서</th><th>연락처</th><th class="no-print">관리</th></tr></thead><tbody>${data.length?data.map(m=>`<tr><td style="font-weight:600">${m.name}</td><td><span class="badge badge-gold">${m.role}</span></td><td>${m.department||'-'}</td><td>${m.contact||'-'}</td><td class="no-print"><div class="btn-group"><button class="btn btn-outline btn-sm" onclick='editManager(${JSON.stringify(m)})'>✏️</button><button class="btn btn-danger btn-sm" onclick="deleteManager(${m.id})">🗑</button></div></td></tr>`).join(''):'<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">등록된 담당자가 없습니다</td></tr>'}</tbody></table>`;
+}
+
+function openManagerModal(){
+  document.getElementById('mgr-id').value='';
+  document.getElementById('mgr-name').value='';
+  document.getElementById('mgr-role').value='';
+  document.getElementById('mgr-dept').value='';
+  document.getElementById('mgr-contact').value='';
+  document.getElementById('manager-modal-title').textContent='담당자 추가';
+  openModal('modal-manager');
+}
+
+function editManager(m){
+  document.getElementById('mgr-id').value=m.id;
+  document.getElementById('mgr-name').value=m.name;
+  document.getElementById('mgr-role').value=m.role;
+  document.getElementById('mgr-dept').value=m.department;
+  document.getElementById('mgr-contact').value=m.contact;
+  document.getElementById('manager-modal-title').textContent='담당자 수정';
+  openModal('modal-manager');
+}
+
+async function saveManager(){
+  const id=document.getElementById('mgr-id').value;
+  const body={name:document.getElementById('mgr-name').value,role:document.getElementById('mgr-role').value,department:document.getElementById('mgr-dept').value,contact:document.getElementById('mgr-contact').value};
+  if(!body.name||!body.role)return alert('이름과 역할을 입력해주세요.');
+  await api(id?`/api/managers/${id}`:'/api/managers',{method:id?'PUT':'POST',body:JSON.stringify(body)});
+  closeModal('modal-manager');loadManagers();
+}
+
+async function deleteManager(id){if(confirm('삭제하시겠습니까?')){await api(`/api/managers/${id}`,{method:'DELETE'});loadManagers();}}
+
+// ═══════════════════════════════════════
+//  Students
+// ═══════════════════════════════════════
+async function loadStudents(){
+  const data=await api('/api/students');
+  allStudents=data;
+  const g=document.getElementById('stu-grade').value;
+  const c=document.getElementById('stu-class').value;
+  const s=document.getElementById('stu-search').value;
+  let filtered=data;
+  if(g!=='all')filtered=filtered.filter(x=>x.grade==g);
+  if(c!=='all')filtered=filtered.filter(x=>x.class_num==c);
+  if(s)filtered=filtered.filter(x=>x.name.includes(s)||String(x.student_num).includes(s));
+  document.getElementById('stu-count').innerHTML=`총 <b style="color:var(--accent-gold)">${filtered.length}</b>명`;
+  document.getElementById('student-table').innerHTML=`<table><thead><tr><th>학년</th><th>반</th><th>번호</th><th>이름</th><th>성별</th><th class="no-print">관리</th></tr></thead><tbody>${filtered.length?filtered.map(x=>`<tr><td><span class="badge badge-gold">${x.grade}학년</span></td><td>${x.class_num}반</td><td>${x.student_num}</td><td style="font-weight:600">${x.name}</td><td>${x.gender||'-'}</td><td class="no-print"><div class="btn-group"><button class="btn btn-outline btn-sm" onclick='editStudent(${JSON.stringify(x)})'>✏️</button><button class="btn btn-danger btn-sm" onclick="deleteStudent(${x.id})">🗑</button></div></td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">학생 데이터가 없습니다</td></tr>'}</tbody></table>`;
+}
+
+function openStudentModal(){
+  document.getElementById('stu-id').value='';
+  document.getElementById('stu-name').value='';
+  document.getElementById('stu-grade-f').value='1';
+  document.getElementById('stu-class-f').value='1';
+  document.getElementById('stu-num').value='';
+  document.getElementById('stu-gender').value='남';
+  document.getElementById('student-modal-title').textContent='학생 추가';
+  openModal('modal-student');
+}
+
+function editStudent(s){
+  document.getElementById('stu-id').value=s.id;
+  document.getElementById('stu-name').value=s.name;
+  document.getElementById('stu-grade-f').value=s.grade;
+  document.getElementById('stu-class-f').value=s.class_num;
+  document.getElementById('stu-num').value=s.student_num;
+  document.getElementById('stu-gender').value=s.gender||'남';
+  document.getElementById('student-modal-title').textContent='학생 수정';
+  openModal('modal-student');
+}
+
+async function saveStudent(){
+  const id=document.getElementById('stu-id').value;
+  const body={name:document.getElementById('stu-name').value,grade:document.getElementById('stu-grade-f').value,class_num:document.getElementById('stu-class-f').value,student_num:document.getElementById('stu-num').value||0,gender:document.getElementById('stu-gender').value};
+  if(!body.name)return alert('학생 이름을 입력해주세요.');
+  await api(id?`/api/students/${id}`:'/api/students',{method:id?'PUT':'POST',body:JSON.stringify(body)});
+  closeModal('modal-student');loadStudents();
+}
+
+async function deleteStudent(id){if(confirm('학생을 삭제하시겠습니까?')){await api(`/api/students/${id}`,{method:'DELETE'});loadStudents();}}
+async function deleteAllStudents(){if(confirm('전체 학생 데이터를 삭제하시겠습니까?\n관련 지급 내역도 모두 삭제됩니다.')){await api('/api/students/delete_all',{method:'DELETE'});loadStudents();}}
+
+function handleCSV(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const lines=ev.target.result.trim().split(/\r?\n/).filter(Boolean);
+    if(lines.length<2)return alert('유효한 데이터가 없습니다.');
+    const headers=lines[0].split(',').map(h=>h.trim());
+    const students=lines.slice(1).map(line=>{
+      const v=line.split(',').map(x=>x.trim());
+      const obj={};headers.forEach((h,i)=>obj[h]=v[i]||'');
+      return{name:obj['이름']||obj['name']||obj['성명']||'',grade:obj['학년']||obj['grade']||'1',class_num:obj['반']||obj['class']||obj['학급']||'1',student_num:obj['번호']||obj['number']||obj['번']||'0',gender:obj['성별']||obj['gender']||''};
+    }).filter(s=>s.name);
+    const r=await api('/api/students/bulk',{method:'POST',body:JSON.stringify({students})});
+    alert(`${r.count}명의 학생이 추가되었습니다.`);loadStudents();
+  };
+  reader.readAsText(file);e.target.value='';
+}
+
+function downloadTemplate(){
+  const csv="이름,학년,반,번호,성별\n홍길동,1,1,1,남\n김영희,1,1,2,여";
+  const blob=new Blob(["\ufeff"+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='학생명단_템플릿.csv';a.click();
+}
+
+// ═══════════════════════════════════════
+//  Scholarships
+// ═══════════════════════════════════════
+async function loadScholarships(){
+  const data=await api('/api/scholarships');
+  allScholarships=data;
+  document.getElementById('scholarship-table').innerHTML=`<table><thead><tr><th>장학금명</th><th>지원 주체</th><th>카테고리</th><th>기본 금액</th><th>비고</th><th class="no-print">관리</th></tr></thead><tbody>${data.length?data.map(s=>`<tr><td style="font-weight:600">${s.name}</td><td>${s.provider}</td><td><span class="badge ${catBadge(s.category)}">${s.category}</span></td><td>${s.amount?fmt(s.amount)+'원':'-'}</td><td style="color:var(--text-secondary);font-size:12px">${s.description||'-'}</td><td class="no-print"><div class="btn-group"><button class="btn btn-outline btn-sm" onclick='editScholarship(${JSON.stringify(s)})'>✏️</button><button class="btn btn-danger btn-sm" onclick="deleteScholarship(${s.id})">🗑</button></div></td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">등록된 장학금이 없습니다</td></tr>'}</tbody></table>`;
+}
+
+function openScholarshipModal(){
+  document.getElementById('sc-id').value='';
+  document.getElementById('sc-name').value='';
+  document.getElementById('sc-provider').value='';
+  document.getElementById('sc-category').value='성적우수';
+  document.getElementById('sc-amount').value='';
+  document.getElementById('sc-desc').value='';
+  document.getElementById('scholarship-modal-title').textContent='장학금 추가';
+  openModal('modal-scholarship');
+}
+
+function editScholarship(s){
+  document.getElementById('sc-id').value=s.id;
+  document.getElementById('sc-name').value=s.name;
+  document.getElementById('sc-provider').value=s.provider;
+  document.getElementById('sc-category').value=s.category;
+  document.getElementById('sc-amount').value=s.amount;
+  document.getElementById('sc-desc').value=s.description;
+  document.getElementById('scholarship-modal-title').textContent='장학금 수정';
+  openModal('modal-scholarship');
+}
+
+async function saveScholarship(){
+  const id=document.getElementById('sc-id').value;
+  const body={name:document.getElementById('sc-name').value,provider:document.getElementById('sc-provider').value,category:document.getElementById('sc-category').value,amount:document.getElementById('sc-amount').value||0,description:document.getElementById('sc-desc').value};
+  if(!body.name||!body.provider)return alert('장학금명과 지원 주체를 입력해주세요.');
+  await api(id?`/api/scholarships/${id}`:'/api/scholarships',{method:id?'PUT':'POST',body:JSON.stringify(body)});
+  closeModal('modal-scholarship');loadScholarships();
+}
+
+async function deleteScholarship(id){if(confirm('장학금을 삭제하시겠습니까?\n관련 지급 내역도 삭제됩니다.')){await api(`/api/scholarships/${id}`,{method:'DELETE'});loadScholarships();}}
+
+// ═══════════════════════════════════════
+//  Payments
+// ═══════════════════════════════════════
+async function loadPayments(){
+  const [payments,students,scholarships]=await Promise.all([api('/api/payments'),api('/api/students'),api('/api/scholarships')]);
+  allPayments=payments;allStudents=students;allScholarships=scholarships;
+  const fy=document.getElementById('pay-year').value;
+  const fg=document.getElementById('pay-grade').value;
+  const fs=document.getElementById('pay-status').value;
+  const q=document.getElementById('pay-search').value;
+  let filtered=payments;
+  if(fy!=='all')filtered=filtered.filter(p=>p.year==fy);
+  if(fg!=='all')filtered=filtered.filter(p=>p.student_grade==fg);
+  if(fs!=='all')filtered=filtered.filter(p=>p.status===fs);
+  if(q)filtered=filtered.filter(p=>p.student_name.includes(q)||p.scholarship_name.includes(q));
+  const completedAmt=filtered.filter(p=>p.status==='지급완료').reduce((s,p)=>s+p.amount,0);
+  document.getElementById('pay-summary').innerHTML=`총 <b style="color:var(--accent-gold)">${filtered.length}</b>건 · 지급완료 합계: <b style="color:var(--accent-emerald)">${fmt(completedAmt)}원</b>`;
+  document.getElementById('payment-table').innerHTML=`<table><thead><tr><th>날짜</th><th>연도</th><th>학생</th><th>장학금</th><th>지원 주체</th><th>금액</th><th>상태</th><th class="no-print">관리</th></tr></thead><tbody>${filtered.length?filtered.map(p=>`<tr><td>${p.pay_date}</td><td>${p.year}</td><td style="font-weight:600">${p.student_name} (${p.student_grade}-${p.student_class})</td><td>${p.scholarship_name}</td><td style="color:var(--text-secondary)">${p.scholarship_provider}</td><td style="font-weight:600">${fmt(p.amount)}원</td><td><select class="filter-select no-print" style="padding:4px 24px 4px 8px;font-size:12px" onchange="changePaymentStatus(${p.id},this.value)"><option${p.status==='지급예정'?' selected':''}>지급예정</option><option${p.status==='지급완료'?' selected':''}>지급완료</option><option${p.status==='보류'?' selected':''}>보류</option><option${p.status==='취소'?' selected':''}>취소</option></select></td><td class="no-print"><div class="btn-group"><button class="btn btn-outline btn-sm" onclick="editPayment(${p.id})">✏️</button><button class="btn btn-danger btn-sm" onclick="deletePayment(${p.id})">🗑</button></div></td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">지급 내역이 없습니다</td></tr>'}</tbody></table>`;
+}
+
+async function openPaymentModal(){
+  await Promise.all([loadStudentOptions(),loadScholarshipOptions()]);
+  document.getElementById('pay-id').value='';
+  document.getElementById('pay-student').value='';
+  document.getElementById('pay-scholarship').value='';
+  document.getElementById('pay-amount').value='';
+  document.getElementById('pay-date').value=today();
+  document.getElementById('pay-year-f').value='2026';
+  document.getElementById('pay-status-f').value='지급예정';
+  document.getElementById('payment-modal-title').textContent='지급 등록';
+  openModal('modal-payment');
+}
+
+async function loadStudentOptions(){
+  const data=await api('/api/students');allStudents=data;
+  const sel=document.getElementById('pay-student');
+  sel.innerHTML='<option value="">학생 선택...</option>';
+  [1,2,3].forEach(g=>{
+    const group=document.createElement('optgroup');group.label=g+'학년';
+    data.filter(s=>s.grade===g).forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=`${s.name} (${s.grade}-${s.class_num} ${s.student_num}번)`;group.appendChild(o);});
+    sel.appendChild(group);
+  });
+}
+
+async function loadScholarshipOptions(){
+  const data=await api('/api/scholarships');allScholarships=data;
+  const sel=document.getElementById('pay-scholarship');
+  sel.innerHTML='<option value="">장학금 선택...</option>'+data.map(s=>`<option value="${s.id}" data-amount="${s.amount}">${s.name} (${s.provider})</option>`).join('');
+}
+
+function onScholarshipSelect(){
+  const sel=document.getElementById('pay-scholarship');
+  const opt=sel.options[sel.selectedIndex];
+  if(opt&&opt.dataset.amount)document.getElementById('pay-amount').value=opt.dataset.amount;
+}
+
+async function editPayment(id){
+  await Promise.all([loadStudentOptions(),loadScholarshipOptions()]);
+  const p=allPayments.find(x=>x.id===id);if(!p)return;
+  document.getElementById('pay-id').value=p.id;
+  document.getElementById('pay-student').value=p.student_id;
+  document.getElementById('pay-scholarship').value=p.scholarship_id;
+  document.getElementById('pay-amount').value=p.amount;
+  document.getElementById('pay-date').value=p.pay_date;
+  document.getElementById('pay-year-f').value=p.year;
+  document.getElementById('pay-status-f').value=p.status;
+  document.getElementById('payment-modal-title').textContent='지급 수정';
+  openModal('modal-payment');
+}
+
+async function savePayment(){
+  const id=document.getElementById('pay-id').value;
+  const body={student_id:document.getElementById('pay-student').value,scholarship_id:document.getElementById('pay-scholarship').value,amount:document.getElementById('pay-amount').value||0,pay_date:document.getElementById('pay-date').value,year:document.getElementById('pay-year-f').value,status:document.getElementById('pay-status-f').value};
+  if(!body.student_id||!body.scholarship_id)return alert('학생과 장학금을 선택해주세요.');
+  await api(id?`/api/payments/${id}`:'/api/payments',{method:id?'PUT':'POST',body:JSON.stringify(body)});
+  closeModal('modal-payment');loadPayments();
+}
+
+async function changePaymentStatus(id,status){await api(`/api/payments/${id}`,{method:'PUT',body:JSON.stringify({status})});}
+async function deletePayment(id){if(confirm('지급 내역을 삭제하시겠습니까?')){await api(`/api/payments/${id}`,{method:'DELETE'});loadPayments();}}
+
+// ═══════════════════════════════════════
+//  Statistics
+// ═══════════════════════════════════════
+const statsTabs=[{key:'category',label:'카테고리별'},{key:'student',label:'학생별'},{key:'grade',label:'학년별'},{key:'class',label:'학급별'}];
+
+function initStatsTabs(){
+  document.getElementById('stats-tabs').innerHTML=statsTabs.map(t=>`<button class="tab${t.key==='category'?' active':''}" onclick="switchStatsTab('${t.key}')">${t.label}</button>`).join('');
+}
+
+function switchStatsTab(key){
+  currentStatsTab=key;
+  document.querySelectorAll('#stats-tabs .tab').forEach(t=>t.classList.remove('active'));
+  document.querySelector(`#stats-tabs .tab[onclick*="${key}"]`).classList.add('active');
+  loadStats();
+}
+
+async function loadStats(){
+  const year=document.getElementById('stats-year').value;
+  const data=await api(`/api/stats?year=${year}`);
+  const el=document.getElementById('stats-content');
+  const catColors={성적우수:'#d4a843',생활곤란:'#3b82f6',특기적성:'#10b981',봉사활동:'#8b5cf6',리더십:'#f59e0b',기타:'#64748b'};
+  const gradeColors=['#d4a843','#3b82f6','#10b981'];
+  
+  if(currentStatsTab==='category'){
+    const cs=data.category_stats.filter(c=>c.count>0||c.scholarship_count>0);
+    el.innerHTML=`<div class="stats-grid">${cs.map(c=>`<div class="stat-card" style="border-left:3px solid ${catColors[c.category]||'#64748b'}"><div class="stat-label">${c.category}</div><div class="stat-value" style="font-size:22px">${fmt(c.amount)}<span>원</span></div><div class="stat-sub">${c.count}건 · ${c.recipients}명 수혜</div></div>`).join('')}</div>
+    <div class="card"><div class="card-title"><span class="dot"></span>카테고리별 상세</div><div class="table-wrap"><table><thead><tr><th>카테고리</th><th>장학금 수</th><th>지급 건수</th><th>수혜 학생</th><th>총 지급액</th></tr></thead><tbody>${cs.map(c=>`<tr><td><span class="badge ${catBadge(c.category)}">${c.category}</span></td><td>${c.scholarship_count}종</td><td>${c.count}건</td><td>${c.recipients}명</td><td style="font-weight:700">${fmt(c.amount)}원</td></tr>`).join('')}<tr style="background:var(--bg-input)"><td style="font-weight:700">합계</td><td>${cs.reduce((s,c)=>s+c.scholarship_count,0)}종</td><td>${cs.reduce((s,c)=>s+c.count,0)}건</td><td>-</td><td style="font-weight:700;color:var(--accent-gold)">${fmt(cs.reduce((s,c)=>s+c.amount,0))}원</td></tr></tbody></table></div></div>`;
+  }else if(currentStatsTab==='student'){
+    const ss=data.student_stats;
+    el.innerHTML=`<div class="card"><div class="card-title"><span class="dot"></span>학생별 장학금 수혜 현황</div><div class="table-wrap"><table><thead><tr><th>순위</th><th>학년/반</th><th>번호</th><th>이름</th><th>수혜 횟수</th><th>총 수혜액</th></tr></thead><tbody>${ss.length?ss.map((d,i)=>`<tr><td><span class="badge ${i===0?'badge-gold':i===1?'badge-blue':i===2?'badge-emerald':'badge-gray'}">${i+1}위</span></td><td>${d.student.grade}-${d.student.class_num}</td><td>${d.student.student_num}</td><td style="font-weight:600">${d.student.name}</td><td>${d.count}회</td><td style="font-weight:700">${fmt(d.amount)}원</td></tr>`).join(''):'<tr><td colspan="6" class="empty">데이터가 없습니다</td></tr>'}</tbody></table></div></div>`;
+  }else if(currentStatsTab==='grade'){
+    const gs=data.grade_stats;const maxA=Math.max(...gs.map(g=>g.amount),1);
+    el.innerHTML=`<div class="grid-2"><div class="card"><div class="card-title"><span class="dot"></span>학년별 지급 비교</div><div class="bar-chart" style="height:220px">${gs.map((g,i)=>`<div class="bar-item"><div class="bar-value">${fmt(g.amount)}원</div><div class="bar" style="height:${(g.amount/maxA)*160}px;background:linear-gradient(180deg,${gradeColors[i]},${gradeColors[i]}88)"></div><div class="bar-label">${g.grade}학년</div></div>`).join('')}</div></div><div class="card"><div class="card-title"><span class="dot"></span>학년별 수혜율</div>${gs.map((g,i)=>`<div style="margin-bottom:20px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:13px;font-weight:600">${g.grade}학년</span><span style="font-size:13px;color:var(--text-secondary)">${g.recipients}/${g.total_students}명 (${g.ratio}%)</span></div><div class="progress-bar"><div class="progress-fill" style="width:${g.ratio}%;background:linear-gradient(90deg,${gradeColors[i]},${gradeColors[i]}cc)"></div></div></div>`).join('')}</div></div>
+    <div class="card"><div class="card-title"><span class="dot"></span>학년별 상세</div><div class="table-wrap"><table><thead><tr><th>학년</th><th>전체 학생</th><th>수혜 학생</th><th>수혜율</th><th>지급 건수</th><th>총 지급액</th><th>1인당 평균</th></tr></thead><tbody>${gs.map(g=>`<tr><td><span class="badge badge-gold">${g.grade}학년</span></td><td>${g.total_students}명</td><td>${g.recipients}명</td><td>${g.ratio}%</td><td>${g.count}건</td><td style="font-weight:700">${fmt(g.amount)}원</td><td>${g.recipients>0?fmt(Math.round(g.amount/g.recipients))+'원':'-'}</td></tr>`).join('')}</tbody></table></div></div>`;
+  }else if(currentStatsTab==='class'){
+    const cs=data.class_stats;
+    el.innerHTML=`<div class="card"><div class="card-title"><span class="dot"></span>학급별 장학금 현황</div><div class="table-wrap"><table><thead><tr><th>학급</th><th>전체 학생</th><th>수혜 학생</th><th>수혜율</th><th>지급 건수</th><th>총 지급액</th><th>1인당 평균</th></tr></thead><tbody>${cs.map(c=>`<tr><td><span class="badge badge-gold">${c.grade}-${c.class_num}</span></td><td>${c.total_students}명</td><td>${c.recipients}명</td><td>${c.ratio}%</td><td>${c.count}건</td><td style="font-weight:700">${fmt(c.amount)}원</td><td>${c.recipients>0?fmt(Math.round(c.amount/c.recipients))+'원':'-'}</td></tr>`).join('')}<tr style="background:var(--bg-input)"><td style="font-weight:700">합계</td><td>${cs.reduce((s,c)=>s+c.total_students,0)}명</td><td>-</td><td>-</td><td>${cs.reduce((s,c)=>s+c.count,0)}건</td><td style="font-weight:700;color:var(--accent-gold)">${fmt(cs.reduce((s,c)=>s+c.amount,0))}원</td><td>-</td></tr></tbody></table></div></div>`;
+  }
+}
+
+// ═══════════════════════════════════════
+//  Regulation
+// ═══════════════════════════════════════
+let regMode='view', regData={};
+
+async function loadRegulation(){
+  regData=await api('/api/regulation');
+  regMode='view';
+  renderRegulation();
+}
+
+function renderRegulation(){
+  const d=regData;
+  document.getElementById('reg-dates').textContent=`시행일: ${d.effective_date} · 최종 수정: ${d.last_modified}`;
+  
+  if(regMode==='view'){
+    document.getElementById('reg-buttons').innerHTML=`<button class="btn btn-gold" onclick="startEditReg()">✏️ 규정 수정</button><button class="btn btn-outline" onclick="resetRegulation()">기본 규정 복원</button><button class="btn btn-outline" onclick="window.print()">🖨 인쇄</button>`;
+    
+    // Parse content into formatted view
+    const content=d.content||'';
+    const sections=content.split(/【(.+?)】/).filter(Boolean);
+    let html='';
+    for(let i=0;i<sections.length;i+=2){
+      const title=sections[i];
+      const body=sections[i+1]||'';
+      html+=`<div class="reg-chapter"><div class="reg-chapter-title">${title}</div>`;
+      const articles=body.trim().split(/\n(?=제\d+조)/);
+      articles.forEach(art=>{
+        const lines=art.trim().split('\n').filter(Boolean);
+        if(!lines.length)return;
+        const titleLine=lines[0];
+        const bodyLines=lines.slice(1);
+        html+=`<div class="reg-article"><div class="reg-article-title">${titleLine}</div><div class="reg-article-body">`;
+        bodyLines.forEach(l=>{
+          const t=l.trim();
+          if(t.match(/^[①-⑩]/))html+=`<span class="sub">${t}</span>`;
+          else html+=`<span style="display:block">${t}</span>`;
+        });
+        html+=`</div></div>`;
+      });
+      html+=`</div>`;
+    }
+    
+    document.getElementById('reg-content').innerHTML=`<div class="reg-document"><div class="reg-header-bar"><div class="reg-school">오성중학교</div><h3>${d.title}</h3></div><div class="reg-body">${html}</div><div class="reg-footer">오성중학교 · 시행일 ${d.effective_date}</div></div>`;
+  }else{
+    document.getElementById('reg-buttons').innerHTML=`<button class="btn btn-gold" onclick="saveRegulation()">✅ 저장</button><button class="btn btn-outline" onclick="loadRegulation()">취소</button>`;
+    document.getElementById('reg-content').innerHTML=`<div class="card"><div class="card-title"><span class="dot"></span>규정 편집</div><div class="form-row" style="margin-bottom:16px"><div class="form-group"><label class="form-label">규정 제목</label><input class="form-input" id="reg-title" value="${d.title}"></div><div class="form-group"><label class="form-label">시행일</label><input class="form-input" type="date" id="reg-eff-date" value="${d.effective_date}"></div></div><div class="form-group"><label class="form-label">규정 내용</label><p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">【장 제목】으로 장을 구분합니다. 제N조 형식으로 조항을 시작합니다.</p><textarea class="form-textarea" id="reg-edit-content">${d.content}</textarea></div></div>`;
+  }
+}
+
+function startEditReg(){regMode='edit';renderRegulation();}
+
+async function saveRegulation(){
+  const body={title:document.getElementById('reg-title').value,content:document.getElementById('reg-edit-content').value,effective_date:document.getElementById('reg-eff-date').value};
+  regData=await api('/api/regulation',{method:'PUT',body:JSON.stringify(body)});
+  regMode='view';renderRegulation();
+}
+
+async function resetRegulation(){
+  if(!confirm('기본 규정으로 초기화하시겠습니까?'))return;
+  regData=await api('/api/regulation/reset',{method:'POST'});
+  regMode='view';renderRegulation();
+}
+
+// ═══════════════════════════════════════
+//  Init
+// ═══════════════════════════════════════
+initNav();
+initStatsTabs();
+loadDashboard();
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(el=>{
+  el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('open');});
+});
+</script>
+</body>
+</html>
