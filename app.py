@@ -465,6 +465,113 @@ def export_csv():
     return response
 
 
+@app.route('/api/payments/bulk', methods=['POST'])
+def bulk_add_payments():
+    """CSV 업로드를 통한 지급 내역 일괄 등록 (기존 데이터에 추가만 함)"""
+    data = request.json
+    rows = data.get('payments', [])
+    
+    students = Student.query.all()
+    scholarships = Scholarship.query.all()
+    
+    added = 0
+    skipped = 0
+    errors = []
+    
+    for i, row in enumerate(rows):
+        # 학생 찾기: 이름 + 학년 + 반 + 번호로 매칭
+        student_name = row.get('이름', row.get('name', '')).strip()
+        student_grade = row.get('학년', row.get('grade', '')).strip()
+        student_class = row.get('반', row.get('class', row.get('학급', ''))).strip()
+        student_num = row.get('번호', row.get('number', row.get('번', ''))).strip()
+        
+        scholarship_name = row.get('장학금명', row.get('scholarship', '')).strip()
+        amount = row.get('금액', row.get('amount', '0')).strip().replace(',', '')
+        pay_date = row.get('날짜', row.get('date', row.get('지급날짜', ''))).strip()
+        year = row.get('연도', row.get('year', str(date.today().year))).strip()
+        status = row.get('상태', row.get('status', '지급완료')).strip()
+        
+        if not student_name:
+            skipped += 1
+            continue
+        
+        # 학생 매칭 (이름 필수, 학년/반/번호는 보조)
+        matched_student = None
+        candidates = [s for s in students if s.name == student_name]
+        
+        if len(candidates) == 1:
+            matched_student = candidates[0]
+        elif len(candidates) > 1:
+            # 동명이인: 학년+반+번호로 추가 매칭
+            for c in candidates:
+                if (str(c.grade) == str(student_grade) and 
+                    str(c.class_num) == str(student_class)):
+                    if not student_num or str(c.student_num) == str(student_num):
+                        matched_student = c
+                        break
+            if not matched_student:
+                matched_student = candidates[0]  # 첫 번째로 fallback
+        
+        if not matched_student:
+            errors.append(f"{i+1}행: 학생 '{student_name}'을(를) 찾을 수 없습니다.")
+            skipped += 1
+            continue
+        
+        # 장학금 매칭
+        matched_scholarship = None
+        if scholarship_name:
+            sc_candidates = [s for s in scholarships if s.name == scholarship_name]
+            if sc_candidates:
+                matched_scholarship = sc_candidates[0]
+            else:
+                # 부분 매칭 시도
+                sc_candidates = [s for s in scholarships if scholarship_name in s.name or s.name in scholarship_name]
+                if sc_candidates:
+                    matched_scholarship = sc_candidates[0]
+        
+        if not matched_scholarship:
+            errors.append(f"{i+1}행: 장학금 '{scholarship_name}'을(를) 찾을 수 없습니다.")
+            skipped += 1
+            continue
+        
+        # 금액 처리
+        try:
+            pay_amount = int(float(amount)) if amount else matched_scholarship.amount
+        except (ValueError, TypeError):
+            pay_amount = matched_scholarship.amount
+        
+        # 연도 처리
+        try:
+            pay_year = int(year)
+        except (ValueError, TypeError):
+            pay_year = date.today().year
+        
+        # 상태 유효성 검증
+        if status not in ['지급예정', '지급완료', '보류', '취소']:
+            status = '지급완료'
+        
+        # 지급 내역 추가
+        p = Payment(
+            student_id=matched_student.id,
+            scholarship_id=matched_scholarship.id,
+            amount=pay_amount,
+            pay_date=pay_date,
+            year=pay_year,
+            status=status
+        )
+        db.session.add(p)
+        added += 1
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'added': added,
+        'skipped': skipped,
+        'errors': errors[:10]  # 최대 10개 오류만 반환
+    })
+
+
 # ═══════════════════════════════════════════
 #  API - Statistics
 # ═══════════════════════════════════════════

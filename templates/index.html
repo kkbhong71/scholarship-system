@@ -213,8 +213,11 @@ tbody tr:hover{background:var(--bg-card-hover);}
       <div class="page-header"><h2>지급 관리</h2><p>장학금 지급 현황을 기록하고 관리합니다</p></div>
       <div class="btn-group no-print" style="margin-bottom:16px">
         <button class="btn btn-gold" onclick="openPaymentModal()">＋ 지급 등록</button>
+        <button class="btn btn-outline" onclick="document.getElementById('pay-csv-file').click()">📤 CSV 업로드</button>
+        <button class="btn btn-outline" onclick="downloadPayTemplate()">📥 지급 템플릿</button>
         <button class="btn btn-outline" onclick="location.href='/api/payments/csv'">📥 CSV 내보내기</button>
         <button class="btn btn-outline" onclick="window.print()">🖨 인쇄</button>
+        <input type="file" id="pay-csv-file" accept=".csv" onchange="handlePayCSV(event)" style="display:none">
       </div>
       <div class="filters no-print">
         <select class="filter-select" id="pay-year" onchange="loadPayments()"><option value="all">전체 연도</option><option value="2026">2026년</option><option value="2027">2027년</option><option value="2028">2028년</option></select>
@@ -615,6 +618,44 @@ async function savePayment(){
 
 async function changePaymentStatus(id,status){await api(`/api/payments/${id}`,{method:'PUT',body:JSON.stringify({status})});}
 async function deletePayment(id){if(confirm('지급 내역을 삭제하시겠습니까?')){await api(`/api/payments/${id}`,{method:'DELETE'});loadPayments();}}
+
+// ─── Payment CSV Upload ───
+function downloadPayTemplate(){
+  const csv="이름,학년,반,번호,장학금명,금액,날짜,연도,상태\n홍길동,1,1,1,교내 성적우수 장학금,200000,2026-03-15,2026,지급완료\n김영희,1,1,2,평택시 교육발전 장학금,500000,2026-03-15,2026,지급완료";
+  const blob=new Blob(["\ufeff"+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='지급내역_업로드_템플릿.csv';a.click();
+}
+
+function handlePayCSV(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const lines=ev.target.result.trim().split(/\r?\n/).filter(Boolean);
+    if(lines.length<2){alert('유효한 데이터가 없습니다.');return;}
+    const headers=lines[0].split(',').map(h=>h.trim());
+    const payments=lines.slice(1).map(line=>{
+      const v=line.split(',').map(x=>x.trim());
+      const obj={};headers.forEach((h,i)=>obj[h]=v[i]||'');
+      return obj;
+    }).filter(row=>(row['이름']||row['name']||'').trim());
+
+    if(!payments.length){alert('유효한 지급 데이터가 없습니다.');return;}
+
+    if(!confirm(`${payments.length}건의 지급 내역을 업로드하시겠습니까?\n(기존 데이터는 유지됩니다)`))return;
+
+    try{
+      const r=await api('/api/payments/bulk',{method:'POST',body:JSON.stringify({payments})});
+      let msg=`업로드 완료!\n\n✅ 등록 성공: ${r.added}건`;
+      if(r.skipped>0)msg+=`\n⚠️ 건너뜀: ${r.skipped}건`;
+      if(r.errors&&r.errors.length>0)msg+=`\n\n오류 상세:\n${r.errors.join('\n')}`;
+      alert(msg);
+      loadPayments();
+    }catch(err){
+      alert('업로드 중 오류가 발생했습니다: '+err.message);
+    }
+  };
+  reader.readAsText(file);e.target.value='';
+}
 
 // ═══════════════════════════════════════
 //  Statistics
