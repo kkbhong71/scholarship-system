@@ -142,6 +142,16 @@ tbody tr:hover{background:var(--bg-card-hover);}
 .reg-status{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);}
 .dot-live{width:7px;height:7px;border-radius:50%;background:var(--accent-emerald);animation:pulse 2s infinite;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.stu-search-wrap{position:relative;}
+.stu-dropdown{display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-xs);max-height:240px;overflow-y:auto;z-index:50;box-shadow:var(--shadow-lg);margin-top:4px;}
+.stu-dropdown.open{display:block;}
+.stu-dropdown .stu-group-label{padding:8px 14px;font-size:11px;font-weight:700;color:var(--accent-gold);background:var(--bg-input);letter-spacing:0.5px;position:sticky;top:0;}
+.stu-dropdown .stu-option{padding:9px 14px;font-size:13px;cursor:pointer;transition:var(--transition);display:flex;justify-content:space-between;align-items:center;}
+.stu-dropdown .stu-option:hover{background:var(--accent-gold-dim);color:var(--accent-gold);}
+.stu-dropdown .stu-option .stu-info{color:var(--text-muted);font-size:11px;}
+.stu-dropdown .stu-empty{padding:20px;text-align:center;color:var(--text-muted);font-size:13px;}
+.stu-selected-badge{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:4px 12px;background:var(--accent-gold-dim);border:1px solid rgba(212,168,67,0.3);border-radius:20px;font-size:12px;color:var(--accent-gold);font-weight:600;}
+.stu-selected-badge .stu-clear{cursor:pointer;opacity:0.7;font-size:14px;}.stu-selected-badge .stu-clear:hover{opacity:1;}
 @media print{.sidebar,.btn,.btn-group,.search-bar,.filters,.no-print{display:none!important;}.main{margin-left:0!important;padding:20px!important;}.card{break-inside:avoid;}*{color:#000!important;background:#fff!important;border-color:#ddd!important;}}
 @media(max-width:768px){.sidebar{display:none;}.main{margin-left:0;padding:16px;}.stats-grid{grid-template-columns:repeat(2,1fr);}.grid-2{grid-template-columns:1fr;}.form-row{grid-template-columns:1fr;}}
 ::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:var(--bg-deep);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
@@ -302,7 +312,14 @@ tbody tr:hover{background:var(--bg-card-hover);}
   <div class="modal">
     <div class="modal-header"><h3 id="payment-modal-title">지급 등록</h3><button class="modal-close" onclick="closeModal('modal-payment')">✕</button></div>
     <input type="hidden" id="pay-id">
-    <div class="form-group"><label class="form-label">학생 *</label><select class="form-select" id="pay-student"></select></div>
+    <div class="form-group">
+      <label class="form-label">학생 * <span style="font-weight:400;color:var(--text-muted)">(이름 입력하여 검색)</span></label>
+      <input type="hidden" id="pay-student">
+      <div class="stu-search-wrap">
+        <input class="form-input" id="pay-student-search" placeholder="학생 이름을 입력하세요..." autocomplete="off" oninput="filterStudentList()" onfocus="showStudentDropdown()">
+        <div class="stu-dropdown" id="pay-student-dropdown"></div>
+      </div>
+    </div>
     <div class="form-group"><label class="form-label">장학금 *</label><select class="form-select" id="pay-scholarship" onchange="onScholarshipSelect()"></select></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">금액 (원)</label><input class="form-input" type="number" id="pay-amount" placeholder="자동 입력"></div>
@@ -562,25 +579,59 @@ async function openPaymentModal(){
   await Promise.all([loadStudentOptions(),loadScholarshipOptions()]);
   document.getElementById('pay-id').value='';
   document.getElementById('pay-student').value='';
+  document.getElementById('pay-student-search').value='';
   document.getElementById('pay-scholarship').value='';
   document.getElementById('pay-amount').value='';
   document.getElementById('pay-date').value=today();
   document.getElementById('pay-year-f').value='2026';
   document.getElementById('pay-status-f').value='지급예정';
   document.getElementById('payment-modal-title').textContent='지급 등록';
+  hideStudentDropdown();
   openModal('modal-payment');
 }
 
 async function loadStudentOptions(){
   const data=await api('/api/students');allStudents=data;
-  const sel=document.getElementById('pay-student');
-  sel.innerHTML='<option value="">학생 선택...</option>';
-  [1,2,3].forEach(g=>{
-    const group=document.createElement('optgroup');group.label=g+'학년';
-    data.filter(s=>s.grade===g).forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=`${s.name} (${s.grade}-${s.class_num} ${s.student_num}번)`;group.appendChild(o);});
-    sel.appendChild(group);
-  });
+  renderStudentDropdown(data);
 }
+
+function renderStudentDropdown(list){
+  const dd=document.getElementById('pay-student-dropdown');
+  if(!list.length){dd.innerHTML='<div class="stu-empty">검색 결과가 없습니다</div>';return;}
+  let html='';
+  [1,2,3].forEach(g=>{
+    const grp=list.filter(s=>s.grade===g);
+    if(!grp.length)return;
+    html+=`<div class="stu-group-label">${g}학년</div>`;
+    grp.forEach(s=>{
+      html+=`<div class="stu-option" onclick="selectStudent(${s.id},'${s.name}',${s.grade},${s.class_num},${s.student_num})"><span>${s.name}</span><span class="stu-info">${s.grade}-${s.class_num} ${s.student_num}번</span></div>`;
+    });
+  });
+  dd.innerHTML=html;
+}
+
+function filterStudentList(){
+  const q=document.getElementById('pay-student-search').value.trim();
+  showStudentDropdown();
+  if(!q){renderStudentDropdown(allStudents);return;}
+  const filtered=allStudents.filter(s=>s.name.includes(q)||String(s.student_num).includes(q));
+  renderStudentDropdown(filtered);
+}
+
+function showStudentDropdown(){document.getElementById('pay-student-dropdown').classList.add('open');}
+function hideStudentDropdown(){document.getElementById('pay-student-dropdown').classList.remove('open');}
+
+function selectStudent(id,name,grade,cls,num){
+  document.getElementById('pay-student').value=id;
+  document.getElementById('pay-student-search').value=`${name} (${grade}-${cls} ${num}번)`;
+  hideStudentDropdown();
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click',function(e){
+  const wrap=document.querySelector('.stu-search-wrap');
+  if(wrap&&!wrap.contains(e.target))hideStudentDropdown();
+});
 
 async function loadScholarshipOptions(){
   const data=await api('/api/scholarships');allScholarships=data;
@@ -599,12 +650,14 @@ async function editPayment(id){
   const p=allPayments.find(x=>x.id===id);if(!p)return;
   document.getElementById('pay-id').value=p.id;
   document.getElementById('pay-student').value=p.student_id;
+  document.getElementById('pay-student-search').value=`${p.student_name} (${p.student_grade}-${p.student_class} ${p.student_num}번)`;
   document.getElementById('pay-scholarship').value=p.scholarship_id;
   document.getElementById('pay-amount').value=p.amount;
   document.getElementById('pay-date').value=p.pay_date;
   document.getElementById('pay-year-f').value=p.year;
   document.getElementById('pay-status-f').value=p.status;
   document.getElementById('payment-modal-title').textContent='지급 수정';
+  hideStudentDropdown();
   openModal('modal-payment');
 }
 
