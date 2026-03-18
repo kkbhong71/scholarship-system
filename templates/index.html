@@ -154,11 +154,36 @@ tbody tr:hover{background:var(--bg-card-hover);}
 .stu-selected-badge .stu-clear{cursor:pointer;opacity:0.7;font-size:14px;}.stu-selected-badge .stu-clear:hover{opacity:1;}
 @media print{.sidebar,.btn,.btn-group,.search-bar,.filters,.no-print{display:none!important;}.main{margin-left:0!important;padding:20px!important;}.card{break-inside:avoid;}*{color:#000!important;background:#fff!important;border-color:#ddd!important;}}
 @media(max-width:768px){.sidebar{display:none;}.main{margin-left:0;padding:16px;}.stats-grid{grid-template-columns:repeat(2,1fr);}.grid-2{grid-template-columns:1fr;}.form-row{grid-template-columns:1fr;}}
+.login-screen{position:fixed;inset:0;background:var(--bg-deep);display:flex;align-items:center;justify-content:center;z-index:9999;}
+.login-box{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:48px 40px;width:90%;max-width:420px;text-align:center;box-shadow:var(--shadow-lg);}
+.login-box h1{font-family:'Playfair Display',serif;font-size:14px;color:var(--accent-gold);letter-spacing:3px;text-transform:uppercase;margin-bottom:6px;}
+.login-box h2{font-size:22px;font-weight:800;margin-bottom:4px;}
+.login-box .school{font-size:12px;color:var(--text-muted);margin-bottom:32px;}
+.login-box .login-icon{font-size:48px;margin-bottom:20px;display:block;}
+.login-box .form-input{text-align:center;font-size:16px;letter-spacing:2px;padding:14px;margin-bottom:16px;}
+.login-box .btn-gold{width:100%;padding:14px;font-size:15px;margin-bottom:12px;}
+.login-error{color:var(--accent-rose);font-size:13px;margin-bottom:12px;min-height:20px;}
+.login-hint{font-size:11px;color:var(--text-muted);margin-top:16px;line-height:1.6;}
 ::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:var(--bg-deep);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 </style>
 </head>
 <body>
-<div class="app">
+<!-- ═══ Login Screen ═══ -->
+<div class="login-screen" id="login-screen">
+  <div class="login-box">
+    <span class="login-icon">🔐</span>
+    <h1>Scholarship</h1>
+    <h2>장학금 관리 시스템</h2>
+    <div class="school">오성중학교 · Oseong Middle School</div>
+    <div class="login-error" id="login-error"></div>
+    <input class="form-input" type="password" id="login-pw" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn btn-gold" onclick="doLogin()">로그인</button>
+    <div class="login-hint">초기 비밀번호: oseong2026<br>로그인 후 설정에서 변경하세요</div>
+  </div>
+</div>
+
+<!-- ═══ Main App ═══ -->
+<div class="app" id="app-main" style="display:none">
   <!-- Sidebar -->
   <aside class="sidebar no-print">
     <div class="sidebar-logo">
@@ -167,6 +192,10 @@ tbody tr:hover{background:var(--bg-card-hover);}
       <div class="school">오성중학교 · Oseong Middle School</div>
     </div>
     <nav class="sidebar-nav" id="nav"></nav>
+    <div style="padding:8px 12px;border-top:1px solid var(--border)">
+      <div class="nav-item" onclick="openPasswordModal()">🔑 비밀번호 변경</div>
+      <div class="nav-item" onclick="doLogout()" style="color:var(--accent-rose)">🚪 로그아웃</div>
+    </div>
     <div class="sidebar-footer">© 2026 오성중학교 장학금 관리 시스템<br>v1.0</div>
   </aside>
 
@@ -330,6 +359,16 @@ tbody tr:hover{background:var(--bg-card-hover);}
       <div class="form-group"><label class="form-label">상태</label><select class="form-select" id="pay-status-f"><option>지급예정</option><option>지급완료</option><option>보류</option><option>취소</option></select></div>
     </div>
     <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('modal-payment')">취소</button><button class="btn btn-gold" onclick="savePayment()">저장</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-password">
+  <div class="modal">
+    <div class="modal-header"><h3>비밀번호 변경</h3><button class="modal-close" onclick="closeModal('modal-password')">✕</button></div>
+    <div class="form-group"><label class="form-label">현재 비밀번호</label><input class="form-input" type="password" id="pw-current" placeholder="현재 비밀번호 입력"></div>
+    <div class="form-group"><label class="form-label">새 비밀번호 (4자 이상)</label><input class="form-input" type="password" id="pw-new" placeholder="새 비밀번호 입력"></div>
+    <div class="form-group"><label class="form-label">새 비밀번호 확인</label><input class="form-input" type="password" id="pw-confirm" placeholder="새 비밀번호 다시 입력"></div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('modal-password')">취소</button><button class="btn btn-gold" onclick="changePassword()">변경</button></div>
   </div>
 </div>
 
@@ -815,11 +854,80 @@ async function resetRegulation(){
 }
 
 // ═══════════════════════════════════════
+//  Auth - Login / Logout
+// ═══════════════════════════════════════
+async function checkAuth(){
+  try{
+    const r=await api('/api/auth/check');
+    if(r.logged_in){showApp();}else{showLogin();}
+  }catch(e){showLogin();}
+}
+
+function showLogin(){
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('app-main').style.display='none';
+  document.getElementById('login-pw').value='';
+  document.getElementById('login-error').textContent='';
+  setTimeout(()=>document.getElementById('login-pw').focus(),100);
+}
+
+function showApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-main').style.display='flex';
+  initNav();
+  initStatsTabs();
+  loadDashboard();
+}
+
+async function doLogin(){
+  const pw=document.getElementById('login-pw').value;
+  if(!pw){document.getElementById('login-error').textContent='비밀번호를 입력해주세요.';return;}
+  try{
+    const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
+    const d=await r.json();
+    if(d.success){showApp();}
+    else{document.getElementById('login-error').textContent=d.error||'로그인 실패';document.getElementById('login-pw').value='';document.getElementById('login-pw').focus();}
+  }catch(e){document.getElementById('login-error').textContent='서버 연결 오류';}
+}
+
+async function doLogout(){
+  if(!confirm('로그아웃 하시겠습니까?'))return;
+  await fetch('/api/auth/logout',{method:'POST'});
+  showLogin();
+}
+
+function openPasswordModal(){
+  document.getElementById('pw-current').value='';
+  document.getElementById('pw-new').value='';
+  document.getElementById('pw-confirm').value='';
+  openModal('modal-password');
+}
+
+async function changePassword(){
+  const current=document.getElementById('pw-current').value;
+  const newPw=document.getElementById('pw-new').value;
+  const confirm=document.getElementById('pw-confirm').value;
+  if(!current||!newPw||!confirm)return alert('모든 항목을 입력해주세요.');
+  try{
+    const r=await fetch('/api/auth/change_password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current,new_password:newPw,confirm})});
+    const d=await r.json();
+    if(d.success){alert('비밀번호가 변경되었습니다.\n다음 로그인부터 새 비밀번호를 사용하세요.');closeModal('modal-password');}
+    else{alert(d.error||'변경 실패');}
+  }catch(e){alert('서버 오류');}
+}
+
+// ─── API 401 자동 감지 (세션 만료 시 로그인 화면으로) ───
+const _origApi=api;
+api=async function(url,opts={}){
+  const r=await fetch(url,{headers:{'Content-Type':'application/json'},...opts});
+  if(r.status===401){showLogin();throw new Error('세션 만료');}
+  return r.json();
+};
+
+// ═══════════════════════════════════════
 //  Init
 // ═══════════════════════════════════════
-initNav();
-initStatsTabs();
-loadDashboard();
+checkAuth();
 
 // Close modals on overlay click
 document.querySelectorAll('.modal-overlay').forEach(el=>{

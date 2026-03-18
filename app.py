@@ -1,8 +1,10 @@
 import os
 import csv
 import io
-from datetime import datetime, date
-from flask import Flask, render_template, request, jsonify, Response
+import hashlib
+from datetime import datetime, date, timedelta
+from functools import wraps
+from flask import Flask, render_template, request, jsonify, Response, session, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 
@@ -17,6 +19,7 @@ if DATABASE_URL.startswith("postgres://"):
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'oseong-scholarship-2026')
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)  # 8시간 후 자동 로그아웃
 
 db = SQLAlchemy(app)
 
@@ -116,6 +119,25 @@ class Regulation(db.Model):
             'id': self.id, 'title': self.title, 'content': self.content,
             'effective_date': self.effective_date, 'last_modified': self.last_modified
         }
+
+
+class SystemConfig(db.Model):
+    __tablename__ = 'system_config'
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(100), unique=True, nullable=False)
+    value = db.Column(db.Text, nullable=False)
+
+def hash_password(pw):
+    return hashlib.sha256(pw.encode('utf-8')).hexdigest()
+
+# ─── 인증 데코레이터 ───
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('logged_in'):
+            return jsonify({'error': '로그인이 필요합니다'}), 401
+        return f(*args, **kwargs)
+    return decorated
 
 
 # ═══════════════════════════════════════════
@@ -249,18 +271,63 @@ def init_db():
         )
         db.session.add(reg)
         db.session.commit()
+    # 기본 비밀번호 설정 (최초 1회)
+    if not SystemConfig.query.filter_by(key='admin_password').first():
+        default_pw = SystemConfig(key='admin_password', value=hash_password('oseong2026'))
+        db.session.add(default_pw)
+        db.session.commit()
 
 with app.app_context():
     init_db()
 
 
 # ═══════════════════════════════════════════
-#  Routes - Pages
+#  Routes - 인증
 # ═══════════════════════════════════════════
 
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/api/auth/check')
+def auth_check():
+    return jsonify({'logged_in': bool(session.get('logged_in'))})
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    data = request.json
+    pw = data.get('password', '')
+    stored = SystemConfig.query.filter_by(key='admin_password').first()
+    if stored and stored.value == hash_password(pw):
+        session.permanent = True
+        session['logged_in'] = True
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'error': '비밀번호가 올바르지 않습니다.'}), 401
+
+@app.route('/api/auth/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return jsonify({'success': True})
+
+@app.route('/api/auth/change_password', methods=['POST'])
+@login_required
+def change_password():
+    data = request.json
+    current = data.get('current', '')
+    new_pw = data.get('new_password', '')
+    confirm = data.get('confirm', '')
+    
+    stored = SystemConfig.query.filter_by(key='admin_password').first()
+    if not stored or stored.value != hash_password(current):
+        return jsonify({'success': False, 'error': '현재 비밀번호가 올바르지 않습니다.'}), 400
+    if len(new_pw) < 4:
+        return jsonify({'success': False, 'error': '새 비밀번호는 4자 이상이어야 합니다.'}), 400
+    if new_pw != confirm:
+        return jsonify({'success': False, 'error': '새 비밀번호가 일치하지 않습니다.'}), 400
+    
+    stored.value = hash_password(new_pw)
+    db.session.commit()
+    return jsonify({'success': True})
 
 
 # ═══════════════════════════════════════════
@@ -268,11 +335,13 @@ def index():
 # ═══════════════════════════════════════════
 
 @app.route('/api/managers', methods=['GET'])
+@login_required
 def get_managers():
     managers = Manager.query.order_by(Manager.id).all()
     return jsonify([m.to_dict() for m in managers])
 
 @app.route('/api/managers', methods=['POST'])
+@login_required
 def add_manager():
     data = request.json
     m = Manager(name=data['name'], role=data['role'],
@@ -282,6 +351,7 @@ def add_manager():
     return jsonify(m.to_dict()), 201
 
 @app.route('/api/managers/<int:id>', methods=['PUT'])
+@login_required
 def update_manager(id):
     m = Manager.query.get_or_404(id)
     data = request.json
@@ -293,6 +363,7 @@ def update_manager(id):
     return jsonify(m.to_dict())
 
 @app.route('/api/managers/<int:id>', methods=['DELETE'])
+@login_required
 def delete_manager(id):
     m = Manager.query.get_or_404(id)
     db.session.delete(m)
@@ -305,11 +376,13 @@ def delete_manager(id):
 # ═══════════════════════════════════════════
 
 @app.route('/api/students', methods=['GET'])
+@login_required
 def get_students():
     students = Student.query.order_by(Student.grade, Student.class_num, Student.student_num).all()
     return jsonify([s.to_dict() for s in students])
 
 @app.route('/api/students', methods=['POST'])
+@login_required
 def add_student():
     data = request.json
     s = Student(name=data['name'], grade=int(data['grade']),
@@ -321,6 +394,7 @@ def add_student():
     return jsonify(s.to_dict()), 201
 
 @app.route('/api/students/bulk', methods=['POST'])
+@login_required
 def bulk_add_students():
     data = request.json
     count = 0
@@ -337,6 +411,7 @@ def bulk_add_students():
     return jsonify({'success': True, 'count': count})
 
 @app.route('/api/students/<int:id>', methods=['PUT'])
+@login_required
 def update_student(id):
     s = Student.query.get_or_404(id)
     data = request.json
@@ -349,6 +424,7 @@ def update_student(id):
     return jsonify(s.to_dict())
 
 @app.route('/api/students/<int:id>', methods=['DELETE'])
+@login_required
 def delete_student(id):
     s = Student.query.get_or_404(id)
     db.session.delete(s)
@@ -356,6 +432,7 @@ def delete_student(id):
     return jsonify({'success': True})
 
 @app.route('/api/students/delete_all', methods=['DELETE'])
+@login_required
 def delete_all_students():
     Payment.query.delete()
     Student.query.delete()
@@ -368,11 +445,13 @@ def delete_all_students():
 # ═══════════════════════════════════════════
 
 @app.route('/api/scholarships', methods=['GET'])
+@login_required
 def get_scholarships():
     scholarships = Scholarship.query.order_by(Scholarship.id).all()
     return jsonify([s.to_dict() for s in scholarships])
 
 @app.route('/api/scholarships', methods=['POST'])
+@login_required
 def add_scholarship():
     data = request.json
     s = Scholarship(name=data['name'], provider=data['provider'],
@@ -384,6 +463,7 @@ def add_scholarship():
     return jsonify(s.to_dict()), 201
 
 @app.route('/api/scholarships/<int:id>', methods=['PUT'])
+@login_required
 def update_scholarship(id):
     s = Scholarship.query.get_or_404(id)
     data = request.json
@@ -396,6 +476,7 @@ def update_scholarship(id):
     return jsonify(s.to_dict())
 
 @app.route('/api/scholarships/<int:id>', methods=['DELETE'])
+@login_required
 def delete_scholarship(id):
     s = Scholarship.query.get_or_404(id)
     db.session.delete(s)
@@ -408,11 +489,13 @@ def delete_scholarship(id):
 # ═══════════════════════════════════════════
 
 @app.route('/api/payments', methods=['GET'])
+@login_required
 def get_payments():
     payments = Payment.query.order_by(Payment.pay_date.desc()).all()
     return jsonify([p.to_dict() for p in payments])
 
 @app.route('/api/payments', methods=['POST'])
+@login_required
 def add_payment():
     data = request.json
     p = Payment(student_id=int(data['student_id']),
@@ -426,6 +509,7 @@ def add_payment():
     return jsonify(p.to_dict()), 201
 
 @app.route('/api/payments/<int:id>', methods=['PUT'])
+@login_required
 def update_payment(id):
     p = Payment.query.get_or_404(id)
     data = request.json
@@ -439,6 +523,7 @@ def update_payment(id):
     return jsonify(p.to_dict())
 
 @app.route('/api/payments/<int:id>', methods=['DELETE'])
+@login_required
 def delete_payment(id):
     p = Payment.query.get_or_404(id)
     db.session.delete(p)
@@ -446,6 +531,7 @@ def delete_payment(id):
     return jsonify({'success': True})
 
 @app.route('/api/payments/csv')
+@login_required
 def export_csv():
     payments = Payment.query.order_by(Payment.pay_date.desc()).all()
     output = io.StringIO()
@@ -466,6 +552,7 @@ def export_csv():
 
 
 @app.route('/api/payments/bulk', methods=['POST'])
+@login_required
 def bulk_add_payments():
     """CSV 업로드를 통한 지급 내역 일괄 등록 (기존 데이터에 추가만 함)"""
     data = request.json
@@ -577,6 +664,7 @@ def bulk_add_payments():
 # ═══════════════════════════════════════════
 
 @app.route('/api/stats')
+@login_required
 def get_stats():
     year = request.args.get('year', None)
     
@@ -683,6 +771,7 @@ def get_stats():
 # ═══════════════════════════════════════════
 
 @app.route('/api/regulation', methods=['GET'])
+@login_required
 def get_regulation():
     reg = Regulation.query.first()
     if not reg:
@@ -695,6 +784,7 @@ def get_regulation():
     return jsonify(reg.to_dict())
 
 @app.route('/api/regulation', methods=['PUT'])
+@login_required
 def update_regulation():
     data = request.json
     reg = Regulation.query.first()
@@ -709,6 +799,7 @@ def update_regulation():
     return jsonify(reg.to_dict())
 
 @app.route('/api/regulation/reset', methods=['POST'])
+@login_required
 def reset_regulation():
     reg = Regulation.query.first()
     if reg:
@@ -731,6 +822,7 @@ def reset_regulation():
 # ═══════════════════════════════════════════
 
 @app.route('/api/dashboard')
+@login_required
 def dashboard():
     students = Student.query.all()
     scholarships = Scholarship.query.all()
